@@ -1,0 +1,61 @@
+import pyaudio
+import wave
+from threading import Thread, Event
+from config import config
+
+stop_requested = Event()
+done = Event()
+
+def __do_recording(audio_file):
+    sampleKHz = 16000
+    chunk = 1024
+    # Open the sound file 
+    wf = wave.open(audio_file, 'wb')
+    wf.setnchannels(1)
+    wf.setsampwidth(2)
+    wf.setframerate(sampleKHz)
+
+    # Initialize PyAudio object
+    p = pyaudio.PyAudio()
+
+    # Open the microphone stream
+    try:
+        stream = p.open(format=p.get_format_from_width(2),
+                        channels=1,
+                        rate=sampleKHz,
+                        input=True,
+                        frames_per_buffer=chunk,
+                        input_device_index=config['audio_record_device_id'])
+    except:
+        print('Error opening audio recording device. Check the recording device ID in config.py')
+        exit(1)
+
+    # Record the audio
+    frames = []
+    while not stop_requested.is_set():
+        data = stream.read(chunk)
+        frames.append(data)
+        
+    # Stop and close the microphone stream
+    stream.stop_stream()
+    stream.close()
+
+    # Terminate the PyAudio object
+    p.terminate()
+
+    # Save the audio file
+    wf.writeframes(b''.join(frames))
+    wf.close()
+    done.set()
+
+def start_recording(audio_file):
+    stop_requested.clear()
+    done.clear()
+    thread = Thread(target=__do_recording, args=(audio_file,))
+    thread.start()
+
+def stop_recording():
+    stop_requested.set()
+    while not done.is_set():
+        pass
+    return
