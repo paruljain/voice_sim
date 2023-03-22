@@ -6,10 +6,21 @@ from open_ai import *
 from SimConnect import *
 from play_audio import notify
 from config import config
+from time import sleep
 
 # Global init
 audio_file = 'audio_file.wav'
-sm = SimConnect()
+
+# SIMCONNECT init
+sm = None
+print('Waiting to connect to MSFS')
+while sm == None:
+    try:
+        sm = SimConnect()
+        print('Connected to SIM')
+    except ConnectionError:
+        sleep(5)
+
 ae = AircraftEvents(sm)
 
 # Triggers init

@@ -17,9 +17,9 @@ You can say things like:
 
 ## Prerequisites
 * MSFS 2020
-May work with FSX SP2; tested only with MSFS 2020
+	* May work with FSX SP2; tested only with MSFS 2020
 * Windows 11
-May work on older versions; tested only on Windows 11
+	* May work on older versions; tested only on Windows 11
 * Python 3
 * PIP
 * A microphone
@@ -33,14 +33,10 @@ May work on older versions; tested only on Windows 11
 * Edit config.py to insert your OpenAI API key
 
 ## Using VoiceSim
-Start MSFS in a window (not full screen). Open a command prompt window and change folder to VoiceSim install folder.
-### If you are going to use VR
-Start VR (MSFS CTRL + TAB), put on your headset, and wait for game to appear in the VR headset. Now take off your headset and use ALT + TAB to select the previously open command prompt window. Start VoiceSim by typing *python voice_sim.py*. Now put back your VR headset.
-### If you are not using VR
-Click on the previously opened command prompt. Start VoiceSim by typing *python voice_sim.py*. Now click on the MSFS window and make it full screen.
+Open a Windows command prompt, change to the VoiceSim install folder, and start VoiceSim with *python voice_sim.py*. Now start MSFS.
 
 ### Giving commands
-Press and hold the trigger key, ALT, on the keyboard. Wait for a double beep sound. While continuing to hold the trigger key, speak your command. Release the trigger key. You will see your command converted to text, and the text converted to a SIMCONNECT command. If you are in the cockpit, you will see the control being set.
+Press and hold the trigger key, ALT, on the keyboard. Wait for a double beep sound. While continuing to hold the trigger key, speak your command. Release the trigger key. If you are in the cockpit, you will see the command executed. Usually execution completes within a couple seconds.
 
 ### Notes
 * Rarely the OpenAI Whisper or GPT-3 API will time out, perhaps due to excessive load. Repeat the command if you do not see the change in the cockpit within 12 seconds
@@ -60,8 +56,10 @@ Press and hold the trigger key, ALT, on the keyboard. Wait for a double beep sou
 	1. Run the list_audio_devices.py program to get the ID of the *input device* you want to use
 	2. Edit the config.py file to set the "audio_record_device_id" to the input device ID noted above. To have VoiceSim select windows default output device, set "audio_playback_device_id" to None
 * By default, VoiceSim uses the Windows default playback device to provide audio notifications, such as acknowledge trigger button press. If you have multiple playback devices, you can configure which playback device should be used:
+	1. It is not recommended to change default setting when using VR. This is because when VR is started it inserts a new audio output device connected to the VR headset. Sometimes this can change device IDs and can cause VoiceSim to crash
 	1. Run the list_audio_device.py program to get the ID of the *output device* you want to use. Note that your VR headset must be started in order to detect the headset as an audio output device
 	2. Edit the config.py file to set the "audio_playback_device_id" to the output device ID noted above. To have VoiceSim select windows default output device, set "audio_playback_device_id" to None
+
 ## Adding Voice Commands
 You can add more commands to the prompt.py file. To see available commands please [see this SIMMCONECT source code file](https://github.com/odwdinc/Python-SimConnect/blob/master/SimConnect/EventList.py).
 * OpenAI limits the total length of the prompt and response for the model being used by VoiceSim to 2,049 tokens. A token is roughly 4 characters excluding spaces. You can get an exact count of tokens in the prompt by pasting the prompt on [OpenAI Playground](https://platform.openai.com/playground)
