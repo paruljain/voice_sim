@@ -33,5 +33,6 @@ def notify():
     except OSError:
         # It is possible that the device ID was remapped to another device by OS due to USB PnP etc.
         # Try again
+        stream.close()
         openDevice()
         stream.write(data)

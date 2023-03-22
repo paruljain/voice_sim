@@ -57,8 +57,8 @@ Press and hold the trigger key, ALT, on the keyboard. Wait for a double beep sou
 	2. Edit the config.py file to set the "audio_record_device_id" to the input device ID noted above. To have VoiceSim select windows default output device, set "audio_playback_device_id" to None
 * By default, VoiceSim uses the Windows default playback device to provide audio notifications, such as acknowledge trigger button press. If you have multiple playback devices, you can configure which playback device should be used:
 	1. It is not recommended to change default setting when using VR. This is because when VR is started it inserts a new audio output device connected to the VR headset. Sometimes this can change device IDs and can cause VoiceSim to crash
-	1. Run the list_audio_device.py program to get the ID of the *output device* you want to use. Note that your VR headset must be started in order to detect the headset as an audio output device
-	2. Edit the config.py file to set the "audio_playback_device_id" to the output device ID noted above. To have VoiceSim select windows default output device, set "audio_playback_device_id" to None
+	2. Run the list_audio_device.py program to get the ID of the *output device* you want to use. Note that your VR headset must be started in order to detect the headset as an audio output device
+	3. Edit the config.py file to set the "audio_playback_device_id" to the output device ID noted above. To have VoiceSim select windows default output device, set "audio_playback_device_id" to None
 
 ## Adding Voice Commands
 You can add more commands to the prompt.py file. To see available commands please [see this SIMMCONECT source code file](https://github.com/odwdinc/Python-SimConnect/blob/master/SimConnect/EventList.py).
@@ -78,6 +78,7 @@ You can add more commands to the prompt.py file. To see available commands pleas
 	* Inject start text: [Leave blank]
 	* Inject restart text: [Leave blank]
 	* Show probabilities: Off
+
 ## Cost
 VoiceSim uses two APIs from Open AI. The Whisper API is used for converting speech to text, and then the Completions API is used with GPT-3 model "text-babbage-001" to convert the text into a SIMCONNECT command. At the time of writing of this document, the costs of using these APIs is as follows:
 
@@ -87,15 +88,16 @@ VoiceSim uses two APIs from Open AI. The Whisper API is used for converting spee
 A token is roughly 4 characters excluding spaces. The tokens in an API call to completions API includes the tokens in the prompt (request message sent to the API), as well as the tokens in the response (the SIMMCONECT command).
 
 You can [get current pricing here](https://openai.com/pricing).
+
 ## In the Works
 I am currently working on adding the following features:
-* Automatic MSFS start detect and start
-* Tolerate sound device changes made by VR start
-* More voice commands
+
 * A log to allow troubleshooting after play is completed
 * Audio notifications for command executed and failed
 * Ability to set volume for audio notifications
+
 ## Contributing
 Any contributions are much appreciated! Please open a pull request.
+
 ## Contact
 If you find this project useful, or have any questions or suggestions, please do send an email to me at paruljain@hotmail.com. This will motivate me to continue building.
