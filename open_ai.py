@@ -8,7 +8,8 @@ def getCommand(audio_file):
         'Authorization': f'Bearer {config["open_ai_api_key"]}'
     }
     data = {'model': 'whisper-1'}
-    files = {'file': (audio_file, open(audio_file, 'rb'), 'audio/wav')}
+    
+    files = {'file': ('audio_file.wav', audio_file.read(), 'audio/wav')}
 
     try:
         response = requests.post(url, headers=headers, files=files, data=data, timeout=5)
@@ -20,7 +21,7 @@ def getCommand(audio_file):
     if response.ok:
         text = response.json()['text']
     else:
-        print(f'Whisper error: {response.status_code}: {response.text()}')
+        print(f'Whisper error: {response.status_code}: {response.text}')
         return
 
     # Sometimes Whisper will translate radio frequencies to text like so

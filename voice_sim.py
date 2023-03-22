@@ -8,9 +8,6 @@ from play_audio import notify
 from config import config
 from time import sleep
 
-# Global init
-audio_file = 'audio_file.wav'
-
 # SIMCONNECT init
 sm = None
 print('Waiting to connect to MSFS')
@@ -49,11 +46,13 @@ if 'trigger_joystick_button' in config:
 
 def trigger_pressed():
     notify()
-    start_recording(audio_file)
+    start_recording()
 
 def trigger_released():
-    stop_recording()
-    cmd = getCommand(audio_file)
+    mem_file = stop_recording()
+    mem_file.seek(0)
+    cmd = getCommand(mem_file)
+    mem_file.close()
     if cmd == None:
         return
     if ',' in cmd:

@@ -2,15 +2,18 @@ import pyaudio
 import wave
 from threading import Thread, Event
 from config import config
+import io
 
 stop_requested = Event()
 done = Event()
 
-def __do_recording(audio_file):
+def __do_recording():
+    global mem_file
+    mem_file = io.BytesIO()
     sampleKHz = 16000
     chunk = 1024
     # Open the sound file 
-    wf = wave.open(audio_file, 'wb')
+    wf = wave.open(mem_file, 'wb')
     wf.setnchannels(1)
     wf.setsampwidth(2)
     wf.setframerate(sampleKHz)
@@ -45,17 +48,17 @@ def __do_recording(audio_file):
 
     # Save the audio file
     wf.writeframes(b''.join(frames))
-    wf.close()
+    # wf.close()
     done.set()
 
-def start_recording(audio_file):
+def start_recording():
     stop_requested.clear()
     done.clear()
-    thread = Thread(target=__do_recording, args=(audio_file,))
+    thread = Thread(target=__do_recording)
     thread.start()
 
 def stop_recording():
     stop_requested.set()
     while not done.is_set():
         pass
-    return
+    return mem_file
