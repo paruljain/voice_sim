@@ -1,6 +1,6 @@
 <img src="logo.jpg" alt="alt text" width="100" />
 
-## Voice Sim
+## VoiceSim
 
 VoiceSim allows Microsoft Flight Simulator (MSFS) players to reliably operate aircraft controls with speech. The project is especially useful for VR players because they cannot see the keyboard, mouse, joystick and other controllers. The project is written in Python and uses OpenAI API "Whisper" for speech to text, and "GPT-3" (same technology as ChatGPT) for generating flight simulator SIMCONNECT commands.
 
