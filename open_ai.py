@@ -1,6 +1,11 @@
 import requests
-from config import config
+import os
 import prompt as base_prompt
+
+if not os.path.isfile('config.py'):
+    os.rename('config_sample.py', 'config.py')
+
+from config import config
 
 def getCommand(audio_file):
     url = 'https://api.openai.com/v1/audio/translations'

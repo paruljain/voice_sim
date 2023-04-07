@@ -1,5 +1,10 @@
 import pyaudio
 import wave
+import os
+
+if not os.path.isfile('config.py'):
+    os.rename('config_sample.py', 'config.py')
+
 from config import config
 
 # create an audio object

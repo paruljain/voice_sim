@@ -1,8 +1,13 @@
 import pyaudio
 import wave
 from threading import Thread, Event
-from config import config
+import os
 import io
+
+if not os.path.isfile('config.py'):
+    os.rename('config_sample.py', 'config.py')
+
+from config import config
 
 stop_requested = Event()
 done = Event()

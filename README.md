@@ -31,7 +31,8 @@ You can say things like:
 
 ## Installing VoiceSim
 * Download the zip of this repository and expand the zip to your install folder of choice on the PC running MSFS
-* pip install keyboard pygame pyaudio requests Python-SimConnect 
+* Change directory to install folder
+* Run *pip install -r requirements.txt*
 * In the install folder, copy config_sample.py file to config.py
 * Edit config.py to insert your OpenAI API key
 

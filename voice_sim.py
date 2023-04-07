@@ -5,8 +5,13 @@ from record_audio import *
 from open_ai import *
 from SimConnect import *
 from play_audio import notify
-from config import config
+import os
 from time import sleep
+
+if not os.path.isfile('config.py'):
+    os.rename('config_sample.py', 'config.py')
+
+from config import config
 
 # SIMCONNECT init
 sm = None
