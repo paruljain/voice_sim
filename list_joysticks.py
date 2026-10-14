@@ -5,9 +5,11 @@ import pygame
 
 pygame.joystick.init()
 
-joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
-
-for joystick in joysticks:
-    print('ID:', joystick.get_id(), '----', joystick.get_name())
-
-pygame.joystick.quit()
+try:
+    for device_id in range(pygame.joystick.get_count()):
+        joystick = pygame.joystick.Joystick(device_id)
+        joystick.init()
+        print('ID:', device_id, '----', joystick.get_name())
+        joystick.quit()
+finally:
+    pygame.joystick.quit()

@@ -1,118 +1,133 @@
-from os import environ
-environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-
-from record_audio import *
-from open_ai import *
-from SimConnect import *
-from play_audio import notify
+"""Push-to-talk voice controls for Microsoft Flight Simulator."""
 import os
 from time import sleep
 
-if not os.path.isfile('config.py'):
-    os.rename('config_sample.py', 'config.py')
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-from config import config
+from SimConnect import AircraftEvents, SimConnect
 
-# SIMCONNECT init
-sm = None
-print('Waiting to connect to MSFS')
-while sm == None:
-    try:
-        sm = SimConnect()
-        print('Connected to SIM')
-    except ConnectionError:
-        sleep(5)
+from commands import parse_command
+from open_router import get_command
+from play_audio import AudioNotifier
+from record_audio import AudioRecorder
+from settings import load_config, validate_api_config
 
-ae = AircraftEvents(sm)
 
-# Triggers init
-# Keyboard
-trigger_key = None
-if 'trigger_key' in config and config['trigger_key'] != None and config['trigger_key'] != '':
-    trigger_key = config['trigger_key']
-    import keyboard
-
-# Joystick
-joystick = False
-joystick_button = None
-if 'trigger_joystick_button' in config:
-    joy_config = config['trigger_joystick_button']
-    joystick_id = None
-    if 'joystick_id' in joy_config and joy_config['joystick_id'] != None:
-        joystick_id = joy_config['joystick_id']
-    if 'button' in joy_config and joy_config['button'] != None:
-        joystick_button = joy_config['button']
-    if joystick_id != None and joystick_button != None:
-        joystick = True
-        import pygame
-        pygame.init()
-        joystick = pygame.joystick.Joystick(joystick_id)
-        joystick.init()
-
-def trigger_pressed():
-    notify()
-    start_recording()
-
-def trigger_released():
-    mem_file = stop_recording()
-    mem_file.seek(0)
-    cmd = getCommand(mem_file)
-    mem_file.close()
-    if cmd == None:
+def execute_command(events, command):
+    parsed = parse_command(command)
+    if parsed is None:
         return
-    if ',' in cmd:
-        # This SIMCONNECT command has a parameter
-        try:
-            cmd, param = cmd.split(',')
-        except ValueError:
-            # There may be too many values to unpack error
-            # Ignore
-            return
-        # Process param
-        if cmd.endswith('_RADIO_SET'):
-            param = int(param.replace('.', ''), 16)
-        else:
-            param = int(param)
-
-        sim_cmd_fn = ae.find(cmd)
-        if sim_cmd_fn != None:
-            sim_cmd_fn(param)
-            print('Cmd:', cmd, 'Param:', param)
-        else:
-            print('SIMCONNECT: No such command:', cmd)
+    name, parameter = parsed
+    event = events.find(name)
+    if event is None:
+        print(f'SimConnect has no such command: {name}')
+        return
+    if parameter is None:
+        event()
     else:
-        # This SIMCONNECT command does not have a parameter
-        sim_cmd_fn = ae.find(cmd)
-        if sim_cmd_fn != None:
-            sim_cmd_fn()
-            print('Cmd:', cmd)
+        event(parameter)
+    print(f'Sent to simulator: {command}')
+
+
+def main():
+    config = load_config()
+    validate_api_config(config)
+    trigger_key = config.get('trigger_key')
+    joy_config = config.get('trigger_joystick_button') or {}
+    joystick_id = joy_config.get('joystick_id')
+    button = joy_config.get('button')
+    use_joystick = joystick_id is not None and button is not None
+    if not use_joystick and not trigger_key:
+        raise ValueError('Configure a trigger_key or both joystick_id and button in config.py.')
+    joystick = None
+    pygame = None
+    sm = None
+    notifier = None
+    recorder = AudioRecorder(config.get('audio_record_device_id'))
+    recording = False
+    try:
+        if use_joystick:
+            import pygame
+            pygame.init()
+            joystick = pygame.joystick.Joystick(joystick_id)
+            joystick.init()
+            if not isinstance(button, int) or not 0 <= button < joystick.get_numbuttons():
+                raise ValueError('Joystick button is outside the available button range.')
         else:
-            print('SIMCONNECT: No such command:', cmd)
+            import keyboard
+            keyboard.key_to_scan_codes(trigger_key)  # Validate before waiting for MSFS.
 
-print('VoiceSim started')
+        print('Waiting to connect to MSFS (Ctrl+C to quit)')
+        while sm is None:
+            try:
+                sm = SimConnect()
+            except ConnectionError:
+                sleep(5)
+        events = AircraftEvents(sm)
+        notifier = AudioNotifier(config.get('audio_playback_device_id'))
+        print(f'VoiceSim started. STT: {config["speech_to_text_model"]}; generation: {config["generation_model"]}')
 
-try:
-    key_down = False
-    while True:
-        if joystick:
-            events = pygame.event.get()
-            for event in events:
-                if event.type == pygame.JOYBUTTONDOWN and event.button == joystick_button:
-                    trigger_pressed()
-                elif event.type == pygame.JOYBUTTONUP and event.button == joystick_button:
-                    trigger_released()
-        
-        elif trigger_key != None:
-            event = keyboard.read_event()
-            if not key_down and event.event_type == keyboard.KEY_DOWN and event.name == trigger_key:
-                key_down = True
-                trigger_pressed()
-            elif key_down and event.event_type == keyboard.KEY_UP and event.name == trigger_key:
-                key_down = False
-                trigger_released()
+        def press():
+            nonlocal recording
+            if recording:
+                return
+            try:
+                notifier.notify()
+                recorder.start()
+                recording = True
+            except (OSError, RuntimeError) as exc:
+                print(f'Audio error: {exc}')
 
-except KeyboardInterrupt:
-    # Some cleanup
-    if joystick:
-        joystick.quit()
-        pygame.quit()
+        def release():
+            nonlocal recording
+            if not recording:
+                return
+            recording = False
+            try:
+                audio = recorder.stop()
+                if audio is None:
+                    return
+                with audio:
+                    # A WAV header alone means the trigger was released too quickly.
+                    if audio.getbuffer().nbytes <= 44:
+                        return
+                    command = get_command(audio, config)
+                if command is not None:
+                    execute_command(events, command)
+            except (OSError, RuntimeError, ValueError) as exc:
+                print(f'Command failed: {exc}')
+
+        while True:
+            if joystick is not None:
+                for event in pygame.event.get():
+                    if (event.type in (pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP)
+                            and event.instance_id == joystick.get_instance_id()
+                            and event.button == button):
+                        press() if event.type == pygame.JOYBUTTONDOWN else release()
+                sleep(0.01)
+            else:
+                event = keyboard.read_event()
+                if event.name == trigger_key:
+                    press() if event.event_type == keyboard.KEY_DOWN else release()
+    except KeyboardInterrupt:
+        print('\nVoiceSim stopped.')
+    finally:
+        try:
+            recorder.close()
+        except RuntimeError as exc:
+            print(f'Audio cleanup: {exc}')
+        if notifier is not None:
+            notifier.close()
+        if joystick is not None:
+            joystick.quit()
+        if pygame is not None:
+            pygame.quit()
+        if sm is not None:
+            sm.exit()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (ValueError, OSError, RuntimeError) as exc:
+        raise SystemExit(f'VoiceSim: {exc}') from exc

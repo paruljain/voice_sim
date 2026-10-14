@@ -3,6 +3,7 @@ environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
 import pygame
 import sys
+from time import sleep
 
 if len(sys.argv) != 2:
     print('Error: Missing Parameter: Joystick ID')
@@ -19,6 +20,11 @@ try:
         events = pygame.event.get()
         for event in events:
             if event.type == pygame.JOYBUTTONDOWN:
-                print('Joystick Button:', event.button)
+                if event.instance_id == j.get_instance_id():
+                    print('Joystick Button:', event.button)
+        sleep(0.01)
 except KeyboardInterrupt:
+    pass
+finally:
     j.quit()
+    pygame.quit()

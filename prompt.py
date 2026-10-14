@@ -19,9 +19,8 @@ toggle strobe light or lights: STROBES_TOGGLE
 toggle panel light or lights: PANEL_LIGHTS_TOGGLE
 toggle taxi light or lights: TOGGLE_TAXI_LIGHTS
 toggle cabin light or lights: TOGGLE_CABIN_LIGHTS
-autopilot heading hold on: AP_HDG_HOLD_ON
 set heading to 25 degrees: HEADING_BUG_SET,25
-set autopilot altitude to 20000 feet: AP_ALT_VAR_ENGLISH,20000
+set autopilot altitude to 20000 feet: AP_ALT_VAR_SET_ENGLISH,20000
 set autopilot vertical speed to 500: AP_VS_VAR_SET_ENGLISH,500
 set autopilot vertical speed to minus 500: AP_VS_VAR_SET_ENGLISH,-500
 set autopilot vertical speed to 0: AP_VS_VAR_SET_ENGLISH,0
