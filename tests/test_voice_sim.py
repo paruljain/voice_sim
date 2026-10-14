@@ -110,8 +110,8 @@ class OpenRouterTests(unittest.TestCase):
                              ('request_timeout_seconds', float('nan'))]:
             with self.subTest(field=field, value=value), self.assertRaises(ValueError):
                 validate_api_config({**self.config, field: value})
-        with self.assertRaisesRegex(ValueError, 'old open_ai_api_key'):
-            validate_api_config({**DEFAULTS, 'open_ai_api_key': 'old-key'})
+        with self.assertRaisesRegex(ValueError, 'Set OPENROUTER_API_KEY'):
+            validate_api_config(DEFAULTS)
 
     def test_spoken_radio_digits(self):
         self.assertEqual(normalize_transcript('Set NAV two to ONE ONE OH point seven five.'), 'Set NAV 2 to 110.75')

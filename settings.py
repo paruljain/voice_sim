@@ -34,8 +34,7 @@ def load_config():
 def validate_api_config(config):
     key = os.environ.get('OPENROUTER_API_KEY') or config.get('openrouter_api_key')
     if not isinstance(key, str) or not key.strip() or key.startswith('Insert '):
-        raise ValueError('Set OPENROUTER_API_KEY or openrouter_api_key in config.py. '
-                         'An old open_ai_api_key cannot be used with OpenRouter.')
+        raise ValueError('Set OPENROUTER_API_KEY or openrouter_api_key in config.py.')
     for field in ('speech_to_text_model', 'generation_model'):
         model = config.get(field)
         if not isinstance(model, str) or '/' not in model or not model.strip():

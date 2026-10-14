@@ -17,7 +17,7 @@ Examples:
 
 ## Requirements
 
-- Windows and Microsoft Flight Simulator on the same PC. The original project was tested with Windows 11 and MSFS 2020; MSFS 2024 and FSX have not been verified with this update.
+- Windows and Microsoft Flight Simulator on the same PC. Tested platform: Windows 11 and MSFS 2020. MSFS 2024 and FSX have not been verified.
 - Python **3.10 or newer**. Python 3.11 or 3.12 is a practical choice for Windows audio package wheels; newer Python versions may need native build tools if wheels are unavailable.
 - A microphone and speakers/headset.
 - Internet access and an [OpenRouter API key](https://openrouter.ai/keys) with access/credits for your selected models. Audio and transcripts are sent to OpenRouter and its selected model providers.
@@ -40,10 +40,6 @@ $env:OPENROUTER_API_KEY = 'your-openrouter-key'
 ```
 
 The environment variable takes precedence over the config key. `config.py` is ignored by Git. If it is missing, VoiceSim copies the sample on startup without removing the sample. Settings and the notification sound resolve relative to the app, so launching from another folder works.
-
-### Upgrading the original GPT-3 version
-
-Reinstall requirements in your virtual environment. Keep your existing trigger and audio device settings in `config.py`, replace `open_ai_api_key` with `openrouter_api_key`, and add the model settings below. Missing model settings use the new defaults. An OpenAI API key does not authenticate with OpenRouter. The retired GPT-3 completion endpoint and hard-coded Whisper translation call are no longer used.
 
 ## Choose your models
 
@@ -87,7 +83,7 @@ Use your virtual environment's Python for these helper scripts too. A close micr
 
 ### Troubleshooting
 
-- **Authentication/credits:** HTTP 401 means check the OpenRouter key; HTTP 402 means check credits/access. The old `open_ai_api_key` setting is not used.
+- **Authentication/credits:** HTTP 401 means check the OpenRouter key; HTTP 402 means check credits/access.
 - **Model errors:** check the full ID and that the STT model supports the transcription endpoint. Try one of the examples above. Check [OpenRouter status](https://status.openrouter.ai/) for outages.
 - **Timeout/rate limit:** try again after the current request ends or increase the timeout. VoiceSim does not automatically replay commands.
 - **Recording errors:** verify microphone access and the device ID. Recording errors are reported without waiting forever for a failed recording thread.
@@ -99,11 +95,11 @@ Use your virtual environment's Python for these helper scripts too. A close micr
 
 Edit the lookup table in `prompt.py`. Add a line in the form `spoken example: EVENT_NAME` or `spoken example: EVENT_NAME,123`. Parameterized examples tell the model to substitute the number you request. The app derives its allowed events and parameter requirements from this table; adding a new event does not require a second allowlist edit.
 
-Find supported events in [Python-SimConnect's EventList](https://github.com/odwdinc/Python-SimConnect/blob/master/SimConnect/EventList.py). Test additions in the simulator with your chosen models. The old 2,049-token GPT-3 limit is gone; the selected model's context limit applies. Generation asks for one plain event, uses temperature 0, and allows 128 output tokens.
+Find supported events in [Python-SimConnect's EventList](https://github.com/odwdinc/Python-SimConnect/blob/master/SimConnect/EventList.py). Test additions in the simulator with your chosen models. The selected model's context limit applies. Generation asks for one plain event, uses temperature 0, and allows 128 output tokens.
 
 ## Development
 
-The requirements pin the latest stable PyPI releases checked on October 13, 2026. `keyboard` and `SimConnect` retain their versions because no newer stable releases were listed. `open_ai.py` retains a compatibility alias for the old `getCommand` import; the implementation lives in `open_router.py`.
+The requirements pin the latest stable PyPI releases checked on October 13, 2026. The API implementation lives in `open_router.py`.
 
 Run the offline regression tests (no API key, audio hardware, or simulator required):
 
