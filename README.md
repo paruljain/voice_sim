@@ -171,7 +171,3 @@ Build on 64-bit Windows using 64-bit Python:
 The build runs regression tests, packages `dist\VoiceSim.exe`, and checks an isolated copy using `--help`, `--self-test`, and `--setup`. It verifies settings persist outside the temporary extraction folder and are preserved on repeated setup. It also creates `dist\VoiceSim-windows-x64.zip` and `dist\SHA256SUMS.txt`. The bundle includes SimConnect.dll, PyAudio, pygame, keyboard, requests, Python, the default config, and the notification sound. User keys/settings are never included.
 
 The **Build Windows release** GitHub Actions workflow performs the same build and uploads downloadable artifacts. Run it manually from the Actions tab, or push a `v*` tag. It does not automatically publish a GitHub Release; attach the ZIP and checksum file to a release when ready. Live speech and cockpit behavior still require testing with a microphone, API key, and MSFS.
-
-## Contributing
-
-Contributions are welcome; please open a pull request. Questions and suggestions: paruljain@hotmail.com.
