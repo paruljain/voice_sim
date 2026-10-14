@@ -30,10 +30,11 @@ def main():
         environment['PATH'] = str(Path(os.environ['SystemRoot']) / 'System32')
         for action in ('--help', '--self-test', '--setup'):
             subprocess.run([str(portable), action], cwd=folder, env=environment, check=True, timeout=60)
-        config = folder / 'config.py'
-        commands = folder / 'commands.txt'
-        if not config.is_file() or not commands.is_file():
+        config = folder / 'VoiceSim.ini'
+        if not config.is_file():
             raise RuntimeError('Settings did not persist beside the executable.')
+        if (folder / 'config.py').exists() or (folder / 'commands.txt').exists():
+            raise RuntimeError('Setup must create only one configuration file.')
         custom_config = config.read_text(encoding='utf-8') + '\n# Preserve user settings\n'
         config.write_text(custom_config, encoding='utf-8')
         subprocess.run([str(portable), '--setup'], cwd=root, env=environment, check=True, timeout=60)

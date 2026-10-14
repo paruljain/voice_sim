@@ -15,8 +15,8 @@ from record_audio import AudioRecorder
 from settings import load_config, validate_api_config
 
 
-def execute_command(events, command):
-    parsed = parse_command(command)
+def execute_command(events, command, command_table=None):
+    parsed = parse_command(command, command_table)
     if parsed is None:
         return
     name, parameter = parsed
@@ -40,7 +40,7 @@ def main():
     button = joy_config.get('button')
     use_joystick = joystick_id is not None and button is not None
     if not use_joystick and not trigger_key:
-        raise ValueError('Configure a trigger_key or both joystick_id and button in config.py.')
+        raise ValueError('Configure key or both joystick_id and joystick_button in [trigger] in VoiceSim.ini.')
     joystick = None
     pygame = None
     sm = None
@@ -95,7 +95,7 @@ def main():
                         return
                     command = get_command(audio, config)
                 if command is not None:
-                    execute_command(events, command)
+                    execute_command(events, command, config.get('commands'))
             except (OSError, RuntimeError, ValueError) as exc:
                 print(f'Command failed: {exc}')
 
@@ -144,7 +144,7 @@ def self_test():
     with wave.open(str(RESOURCE_DIR / 'notification.wav'), 'rb') as wav:
         if not wav.getnframes():
             raise ValueError('Notification sound is empty.')
-    if not (RESOURCE_DIR / 'config_sample.py').is_file():
+    if not (RESOURCE_DIR / 'VoiceSim.sample.ini').is_file():
         raise ValueError('Sample configuration is missing.')
     if not os.path.isfile(requests.certs.where()):
         raise ValueError('HTTPS certificate bundle is missing.')
@@ -155,7 +155,7 @@ def self_test():
 def cli(argv=None):
     parser = argparse.ArgumentParser(description='Push-to-talk voice controls for Microsoft Flight Simulator.')
     actions = parser.add_mutually_exclusive_group()
-    actions.add_argument('--setup', action='store_true', help='Create config.py and commands.txt beside VoiceSim.')
+    actions.add_argument('--setup', action='store_true', help='Create VoiceSim.ini with settings and voice commands.')
     actions.add_argument('--list-audio-devices', action='store_true', help='Show microphone and playback device IDs.')
     actions.add_argument('--list-joysticks', action='store_true', help='Show joystick IDs.')
     actions.add_argument('--list-joystick-buttons', type=int, metavar='ID', help='Show pressed buttons for a joystick.')
@@ -165,7 +165,7 @@ def cli(argv=None):
         if args.setup:
             load_config()
             from settings import APP_DIR
-            print(f'Edit {APP_DIR / "config.py"} to set your OpenRouter key and preferences.')
+            print(f'Edit {APP_DIR / "VoiceSim.ini"} to set your OpenRouter key, preferences, and voice commands.')
         elif args.self_test:
             self_test()
         elif args.list_audio_devices:

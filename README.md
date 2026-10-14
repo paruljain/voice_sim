@@ -27,11 +27,11 @@ The Windows release runs without installing Python, pip, or any modules.
 
 1. Download `VoiceSim.exe` or `VoiceSim-windows-x64.zip` from the project's [releases](https://github.com/paruljain/voice_sim/releases).
 2. Put the executable in a writable folder such as `Documents\VoiceSim`. If using the ZIP, extract it first.
-3. Double-click `VoiceSim.exe`. It creates `config.py` and `commands.txt` beside itself. The first launch shows a message asking you to configure your key.
-4. Open `config.py` in a text editor, set `openrouter_api_key`, and save it. You can also change the models, trigger, and audio device IDs here.
+3. Double-click `VoiceSim.exe`. It creates `VoiceSim.ini` beside itself. The first launch shows a message asking you to configure your key.
+4. Open `VoiceSim.ini` in a text editor, set `api_key` in `[openrouter]`, and save it. This one file also contains models, triggers, audio devices, and voice commands.
 5. Launch `VoiceSim.exe` again and start MSFS.
 
-Keep your `config.py` and `commands.txt` when replacing the executable with a new release. Setup never overwrites these files. The console stays open on startup errors when launched by double-clicking.
+Keep your `VoiceSim.ini` when replacing the executable with a new release. Setup never overwrites it. The console stays open on startup errors when launched by double-clicking.
 
 Alternatively, create the settings from PowerShell:
 
@@ -39,13 +39,41 @@ Alternatively, create the settings from PowerShell:
 .\VoiceSim.exe --setup
 ```
 
-Edit `config.py` and set `openrouter_api_key`. Alternatively, set the key for the current PowerShell session:
+Edit `VoiceSim.ini` and set `api_key` under `[openrouter]`. Alternatively, set the key for the current PowerShell session:
 
 ```powershell
 $env:OPENROUTER_API_KEY = 'your-openrouter-key'
 ```
 
 The environment variable takes precedence over the config key. Settings are saved beside the executable; notification audio and native libraries are embedded. Launching from another folder works. Device-listing commands do not require an API key or a running simulator.
+
+### Configuration format
+
+`VoiceSim.ini` is plain text using `key = value` entries grouped into `[openrouter]`, `[trigger]`, `[audio]`, and `[commands]`. Open it in Notepad or any text editor. Values need no quotes, commas between lines, or programming syntax. Lines beginning with `#` or `;` are comments. Leave optional device IDs or language blank to use defaults. Restart VoiceSim after editing.
+
+The generated file includes comments and the complete command table. For example:
+
+```ini
+[openrouter]
+api_key = your-openrouter-key
+speech_to_text_model = openai/whisper-large-v3
+generation_model = openai/gpt-4.1-mini
+
+[trigger]
+key = alt
+joystick_id =
+joystick_button =
+
+[audio]
+record_device_id =
+playback_device_id =
+
+[commands]
+flaps up = FLAPS_UP
+set heading to 25 degrees = HEADING_BUG_SET,25
+```
+
+The command section above is shortened for illustration. Keep all the entries you want to use. Settings are read as data. Misspelled settings, duplicate entries, invalid device IDs, and malformed command entries produce a descriptive startup error.
 
 ## Choose your models
 
@@ -56,16 +84,17 @@ These exact IDs were checked against OpenRouter's live catalog on **October 13, 
 | Speech-to-text | `speech_to_text_model` | [`openai/whisper-large-v3`](https://openrouter.ai/openai/whisper-large-v3) | [`openai/gpt-4o-mini-transcribe`](https://openrouter.ai/openai/gpt-4o-mini-transcribe), [`mistralai/voxtral-mini-transcribe`](https://openrouter.ai/mistralai/voxtral-mini-transcribe) |
 | Command generation | `generation_model` | [`openai/gpt-4.1-mini`](https://openrouter.ai/openai/gpt-4.1-mini) | [`google/gemini-2.5-flash`](https://openrouter.ai/google/gemini-2.5-flash) |
 
-```python
-'speech_to_text_model': 'openai/whisper-large-v3',
-'generation_model': 'openai/gpt-4.1-mini',
-'speech_language': None,
-'request_timeout_seconds': 30,
+```ini
+[openrouter]
+speech_to_text_model = openai/whisper-large-v3
+generation_model = openai/gpt-4.1-mini
+speech_language =
+request_timeout_seconds = 30
 ```
 
-Add those entries inside the `config` dictionary. Use full `provider/model` IDs. Speech-to-text uses OpenRouter's dedicated [`/audio/transcriptions` endpoint](https://openrouter.ai/docs/guides/overview/multimodal/stt); choose a **transcription** model. A general model that accepts audio in chat is not necessarily compatible. Browse the current [transcription model catalog](https://openrouter.ai/models?output_modalities=transcription), or query `https://openrouter.ai/api/v1/models?output_modalities=transcription`. Generation uses `/chat/completions` and needs a text chat model.
+Edit these entries in the `[openrouter]` section. Use full `provider/model` IDs. Speech-to-text uses OpenRouter's dedicated [`/audio/transcriptions` endpoint](https://openrouter.ai/docs/guides/overview/multimodal/stt); choose a **transcription** model. A general model that accepts audio in chat is not necessarily compatible. Browse the current [transcription model catalog](https://openrouter.ai/models?output_modalities=transcription), or query `https://openrouter.ai/api/v1/models?output_modalities=transcription`. Generation uses `/chat/completions` and needs a text chat model.
 
-`speech_language` is an optional language code such as `'en'`; `None` lets the transcription model detect it. Transcription preserves the spoken language rather than forcing an English translation. Generation is instructed with an English command table; try your chosen models with your language before relying on them. `request_timeout_seconds` sets the read timeout for each API call, with a separate 10-second connection timeout. For generation, prefer models that answer briefly without lengthy reasoning; truncated or malformed outputs are ignored.
+`speech_language` is an optional language code such as `en`; leave it blank to detect the language. Transcription preserves the spoken language rather than forcing an English translation. Generation is instructed with an English command table; try your chosen models with your language before relying on them. `request_timeout_seconds` sets the read timeout for each API call, with a separate 10-second connection timeout. For generation, prefer models that answer briefly without lengthy reasoning; truncated or malformed outputs are ignored.
 
 Availability, provider behavior, latency, and prices can change. Check each linked model page for current pricing. Each spoken command makes one transcription request and, if a transcript is returned, one generation request. The command table counts toward generation input usage.
 
@@ -77,13 +106,13 @@ Availability, provider behavior, latency, and prices can change. Check each link
 
 Start MSFS before or after VoiceSim; it waits for a SimConnect connection. In the cockpit, hold **Alt**, wait for the double beep, speak one command, and release Alt. The console shows the transcript, generated event, and whether it was sent. Latency depends on your models and network. Press **Ctrl+C** to quit.
 
-Generated commands must match an event in `commands.txt` with the expected parameter count. Unsupported speech returns no command. Invalid, multiple, or truncated commands are ignored. A sent event does not guarantee the aircraft supports it; some aircraft use custom controls.
+Generated commands must match an event in `[commands]` with the expected parameter count. Unsupported speech returns no command. Invalid, multiple, or truncated commands are ignored. A sent event does not guarantee the aircraft supports it; some aircraft use custom controls.
 
 ### Trigger and audio configuration
 
-- **Keyboard:** change `trigger_key` to a lowercase [keyboard key name](https://github.com/boppreh/keyboard/blob/master/keyboard/_canonical_names.py). Use one key; combinations such as Ctrl+P are not supported. Avoid a key already bound in MSFS.
-- **Joystick:** run `.\VoiceSim.exe --list-joysticks`, then `.\VoiceSim.exe --list-joystick-buttons ID`. Set `joystick_id` and `button` to the reported integers. A configured joystick takes precedence over the keyboard. Only events from that joystick are accepted. Set both values to `None` to use the keyboard.
-- **Microphone/output:** run `.\VoiceSim.exe --list-audio-devices`. Set `audio_record_device_id` to an input ID or `audio_playback_device_id` to an output ID. `None` selects the Windows default device. Device IDs can change when USB devices or VR headsets reconnect; list them again if necessary.
+- **Keyboard:** change `key` in `[trigger]` to a [keyboard key name](https://github.com/boppreh/keyboard/blob/master/keyboard/_canonical_names.py). Use one key; combinations such as Ctrl+P are not supported. Avoid a key already bound in MSFS.
+- **Joystick:** run `.\VoiceSim.exe --list-joysticks`, then `.\VoiceSim.exe --list-joystick-buttons ID`. Set `joystick_id` and `joystick_button` in `[trigger]` to the reported integers. A configured joystick takes precedence over the keyboard. Only events from that joystick are accepted. Leave both values blank to use the keyboard.
+- **Microphone/output:** run `.\VoiceSim.exe --list-audio-devices`. Set `record_device_id` in `[audio]` to an input ID or `playback_device_id` to an output ID. Blank selects the Windows default device. Device IDs can change when USB devices or VR headsets reconnect; list them again if necessary.
 
 A close microphone or headset reduces engine noise. Check Windows microphone permissions and recording levels. Run `.\VoiceSim.exe --help` for all options.
 
@@ -100,7 +129,7 @@ A close microphone or headset reduces engine noise. Check Windows microphone per
 
 ## Add voice commands
 
-Edit the lookup table in `commands.txt` beside the executable. Add a line in the form `spoken example: EVENT_NAME` or `spoken example: EVENT_NAME,123`. Parameterized examples tell the model to substitute the number you request. The app derives its allowed events and parameter requirements from this table; adding a new event does not require a second allowlist edit. `prompt.py` contains the default table used to create this file.
+Edit the `[commands]` section in `VoiceSim.ini`. Add a line in the form `spoken example = EVENT_NAME` or `spoken example = EVENT_NAME,123`. Parameterized examples tell the model to substitute the number you request. The app derives its allowed events and parameter requirements from this table; adding a new event does not require a second allowlist edit. `VoiceSim.sample.ini` contains the default settings and command table embedded in the executable.
 
 Find supported events in [Python-SimConnect's EventList](https://github.com/odwdinc/Python-SimConnect/blob/master/SimConnect/EventList.py). Test additions in the simulator with your chosen models. The selected model's context limit applies. Generation asks for one plain event, uses temperature 0, and allows 128 output tokens.
 
@@ -120,7 +149,7 @@ py -m venv .venv
 .\.venv\Scripts\python.exe voice_sim.py
 ```
 
-All executable options also work with `python voice_sim.py`. Settings live beside the source files when running from source. `config.py`, `commands.txt`, virtual environments, and release artifacts are ignored by Git.
+All executable options also work with `python voice_sim.py`. Settings live beside the source files when running from source. `VoiceSim.ini`, virtual environments, and release artifacts are ignored by Git.
 
 Run the offline regression tests (no API key, audio hardware, or simulator required):
 

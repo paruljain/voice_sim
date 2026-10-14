@@ -62,7 +62,7 @@ class AudioRecorder:
             raise RuntimeError('Microphone did not stop. Restart VoiceSim and check your audio device.')
         self.thread = None
         if self.error is not None:
-            raise RuntimeError('Could not record audio. Check audio_record_device_id and microphone access.') from self.error
+            raise RuntimeError('Could not record audio. Check [audio] record_device_id in VoiceSim.ini and microphone access.') from self.error
         return self.audio
 
     def close(self):

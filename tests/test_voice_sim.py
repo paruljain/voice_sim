@@ -59,6 +59,15 @@ class OpenRouterTests(unittest.TestCase):
         self.assertEqual(generation.kwargs['json']['messages'][1]['role'], 'user')
 
     @patch('open_router.requests.post')
+    def test_generation_uses_configured_commands_for_prompt_and_validation(self, post):
+        self.config['commands'] = {'toggle beacon': 'TOGGLE_BEACON_LIGHTS'}
+        post.side_effect = [response({'text': 'toggle beacon'}), completion('TOGGLE_BEACON_LIGHTS')]
+        self.assertEqual(get_command(io.BytesIO(b'audio'), self.config), 'TOGGLE_BEACON_LIGHTS')
+        message = post.call_args.kwargs['json']['messages'][0]['content']
+        self.assertIn('toggle beacon: TOGGLE_BEACON_LIGHTS', message)
+        self.assertNotIn('FLAPS_UP', message)
+
+    @patch('open_router.requests.post')
     def test_transcription_failures_do_not_generate(self, post):
         for value in ({'text': ''}, {'text': None}, {}, {'error': {'message': 'failure'}}, []):
             with self.subTest(value=value):
@@ -195,30 +204,89 @@ class SettingsTests(unittest.TestCase):
                 self.assertEqual(application_directory(), executable.parent)
 
     def test_external_command_table_used_for_generation_and_validation(self):
-        import prompt
-
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / 'commands.txt').write_text('toggle beacon: BEACON_LIGHTS_TOGGLE\n', encoding='utf-8')
+            (root / 'VoiceSim.ini').write_text('[commands]\ntoggle beacon = TOGGLE_BEACON_LIGHTS\n', encoding='utf-8')
             with patch('settings.APP_DIR', root):
-                self.assertEqual(prompt.get_prompt(), 'toggle beacon: BEACON_LIGHTS_TOGGLE\n')
-                self.assertEqual(parse_command('BEACON_LIGHTS_TOGGLE'), ('BEACON_LIGHTS_TOGGLE', None))
+                table = load_config()['commands']
+                self.assertEqual(table, {'toggle beacon': 'TOGGLE_BEACON_LIGHTS'})
+                self.assertEqual(parse_command('TOGGLE_BEACON_LIGHTS', table), ('TOGGLE_BEACON_LIGHTS', None))
                 with self.assertRaises(ValueError):
-                    parse_command('FLAPS_UP')
+                    parse_command('FLAPS_UP', table)
 
     def test_copy_sample_without_overwriting_and_load_from_app_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            sample = root / 'config_sample.py'
-            sample.write_text("config = {'trigger_key': 'f8'}\n", encoding='utf-8')
+            sample = root / 'VoiceSim.sample.ini'
+            content = (Path(__file__).resolve().parents[1] / sample.name).read_text(encoding='utf-8')
+            sample.write_text(content.replace('key = alt', 'key = f8'), encoding='utf-8')
             with patch('settings.APP_DIR', root), patch('settings.RESOURCE_DIR', root), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(load_config()['trigger_key'], 'f8')
                 self.assertTrue(sample.exists())
-                self.assertTrue((root / 'commands.txt').is_file())
-                (root / 'commands.txt').write_text('custom commands\n', encoding='utf-8')
-                (root / 'config.py').write_text("config = {'trigger_key': 'f9'}\n", encoding='utf-8')
+                config_path = root / 'VoiceSim.ini'
+                self.assertTrue(config_path.is_file())
+                config_path.write_text('[trigger]\nkey = f9\n[commands]\nflaps up = FLAPS_UP\n', encoding='utf-8')
                 self.assertEqual(load_config()['trigger_key'], 'f9')
-                self.assertEqual((root / 'commands.txt').read_text(encoding='utf-8'), 'custom commands\n')
+                self.assertEqual(load_config()['commands'], {'flaps up': 'FLAPS_UP'})
+                self.assertFalse((root / 'config.py').exists())
+                self.assertFalse((root / 'commands.txt').exists())
+
+    def load_text(self, text):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'VoiceSim.ini').write_text(text, encoding='utf-8')
+            with patch('settings.APP_DIR', root):
+                return load_config()
+
+    def test_plain_values_comments_defaults_and_optional_fields(self):
+        config = self.load_text('''# A comment
+[openrouter]
+api_key = literal%value#not-an-inline-comment;either
+speech_language = en
+request_timeout_seconds = 45.5
+[trigger]
+key = F8
+joystick_id = 0
+joystick_button = 2
+[audio]
+record_device_id = 3
+playback_device_id =
+[commands]
+Set Heading = HEADING_BUG_SET,25
+''')
+        self.assertEqual(config['openrouter_api_key'], 'literal%value#not-an-inline-comment;either')
+        self.assertEqual(config['speech_language'], 'en')
+        self.assertEqual(config['request_timeout_seconds'], 45.5)
+        self.assertEqual(config['trigger_key'], 'f8')
+        self.assertEqual(config['trigger_joystick_button'], {'joystick_id': 0, 'button': 2})
+        self.assertEqual(config['audio_record_device_id'], 3)
+        self.assertIsNone(config['audio_playback_device_id'])
+        self.assertEqual(config['commands'], {'Set Heading': 'HEADING_BUG_SET,25'})
+
+    def test_bad_config_reports_actionable_error(self):
+        cases = [
+            ('[openrouter]\nrequest_timeout_seconds = nope', 'positive number'),
+            ('[openrouter]\nrequest_timeout_seconds = nan', 'positive number'),
+            ('[audio]\nrecord_device_id = -1', 'non-negative integer'),
+            ('[audio]\nrecord_device_id = 1.5', 'non-negative integer'),
+            ('[trigger]\njoystick_id = 0', 'both joystick_id'),
+            ('[wrong]\nkey = alt', 'unknown section'),
+            ('[openrouter]\ngeneration_modle = provider/model', 'unknown setting'),
+            ('[commands]\n', 'at least one'),
+            ('[commands]\nflaps = FLAPS_UP,abc', 'invalid command entry'),
+            ('[commands]\nfirst = FLAPS_UP\nsecond = FLAPS_UP,1', 'conflicting parameter'),
+            ('[commands]\nflaps = FLAPS_UP\nflaps = FLAPS_DOWN', 'invalid INI syntax'),
+            ('[DEFAULT]\nkey = alt', 'DEFAULT'),
+        ]
+        for text, message in cases:
+            with self.subTest(text=text), self.assertRaisesRegex(ValueError, message):
+                self.load_text(text)
+
+    def test_parse_error_does_not_expose_key(self):
+        with self.assertRaises(ValueError) as caught:
+            self.load_text('[openrouter]\nprivate-test-key-without-equals\n')
+        self.assertIn('line 2', str(caught.exception))
+        self.assertNotIn('private-test-key', str(caught.exception))
 
 
 class CliTests(unittest.TestCase):

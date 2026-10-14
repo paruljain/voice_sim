@@ -2,22 +2,31 @@
 from decimal import Decimal, InvalidOperation
 import re
 
-import prompt
+from settings import default_commands
 
 
-def command_specs():
+def command_specs(command_table=None):
+    command_table = default_commands() if command_table is None else command_table
+    if not command_table:
+        raise ValueError('VoiceSim.ini: [commands] must contain at least one command.')
     specs = {}
-    for line in prompt.get_prompt().splitlines():
-        if ': ' not in line:
-            continue
-        example = line.split(': ', 1)[1].strip()
-        if re.fullmatch(r'[A-Z][A-Z0-9_]*(?:,-?\d+(?:\.\d+)?)?', example):
-            name, *parameter = example.split(',')
-            specs[name] = bool(parameter)
+    for phrase, example in command_table.items():
+        if not phrase.strip() or not re.fullmatch(r'[A-Z][A-Z0-9_]*(?:,-?\d+(?:\.\d+)?)?', example):
+            raise ValueError(f'VoiceSim.ini: invalid command entry for "{phrase}". Use EVENT or EVENT,NUMBER.')
+        name, *parameter = example.split(',')
+        requires_parameter = bool(parameter)
+        if name in specs and specs[name] != requires_parameter:
+            raise ValueError(f'VoiceSim.ini: conflicting parameter requirements for {name}.')
+        specs[name] = requires_parameter
     return specs
 
 
-def parse_command(text):
+def command_prompt(command_table=None):
+    command_table = default_commands() if command_table is None else command_table
+    return '\n'.join(f'{phrase}: {example}' for phrase, example in command_table.items())
+
+
+def parse_command(text, command_table=None):
     """Return (event, parameter), or None for the explicit no-command response."""
     if not isinstance(text, str):
         raise ValueError('Expected a text command.')
@@ -28,7 +37,7 @@ def parse_command(text):
     if not match:
         raise ValueError('Expected one SimConnect event, optionally followed by a number.')
     name, value = match.groups()
-    specs = command_specs()
+    specs = command_specs(command_table)
     if name not in specs:
         raise ValueError(f'Command is not in the command table: {name}')
     if specs[name] != (value is not None):
