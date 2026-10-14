@@ -7,7 +7,7 @@ import prompt
 
 def command_specs():
     specs = {}
-    for line in prompt.prompt.splitlines():
+    for line in prompt.get_prompt().splitlines():
         if ': ' not in line:
             continue
         example = line.split(': ', 1)[1].strip()
@@ -30,7 +30,7 @@ def parse_command(text):
     name, value = match.groups()
     specs = command_specs()
     if name not in specs:
-        raise ValueError(f'Command is not in prompt.py: {name}')
+        raise ValueError(f'Command is not in the command table: {name}')
     if specs[name] != (value is not None):
         raise ValueError(f'Incorrect parameter count for {name}.')
     if value is None:

@@ -3,7 +3,7 @@ import wave
 
 import pyaudio
 
-from settings import APP_DIR
+from settings import RESOURCE_DIR
 
 
 class AudioNotifier:
@@ -11,7 +11,7 @@ class AudioNotifier:
         self.device_id = device_id
         self.interface = pyaudio.PyAudio()
         self.stream = None
-        with wave.open(str(APP_DIR / 'notification.wav'), 'rb') as wav:
+        with wave.open(str(RESOURCE_DIR / 'notification.wav'), 'rb') as wav:
             self.width = wav.getsampwidth()
             self.channels = wav.getnchannels()
             self.rate = wav.getframerate()

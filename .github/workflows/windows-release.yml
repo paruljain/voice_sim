@@ -1,0 +1,36 @@
+name: Build Windows release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+      - name: Install build dependencies
+        run: python -m pip install -r requirements-build.txt
+      - name: Build and verify portable release
+        run: python build_release.py
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: VoiceSim-windows-x64
+          path: |
+            dist/VoiceSim.exe
+            dist/VoiceSim-windows-x64.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error

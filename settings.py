@@ -4,8 +4,16 @@ import os
 from pathlib import Path
 import runpy
 import shutil
+import sys
 
-APP_DIR = Path(__file__).resolve().parent
+RESOURCE_DIR = Path(__file__).resolve().parent
+# One-file builds extract resources into a temporary folder. Keep user settings
+# beside the actual executable so they survive exit and subsequent launches.
+def application_directory():
+    return Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else RESOURCE_DIR
+
+
+APP_DIR = application_directory()
 DEFAULTS = {
     'trigger_key': 'alt',
     'trigger_joystick_button': {'joystick_id': None, 'button': None},
@@ -22,8 +30,13 @@ DEFAULTS = {
 def load_config():
     path = APP_DIR / 'config.py'
     if not path.exists():
-        shutil.copyfile(APP_DIR / 'config_sample.py', path)
+        shutil.copyfile(RESOURCE_DIR / 'config_sample.py', path)
         print(f'Created {path}. Set your OpenRouter key before starting VoiceSim.')
+    commands_path = APP_DIR / 'commands.txt'
+    if not commands_path.exists():
+        import prompt
+        commands_path.write_text(prompt.prompt, encoding='utf-8')
+        print(f'Created {commands_path}. Edit this file to add voice commands.')
     # Read the source each time; same-size edits can otherwise reuse stale bytecode.
     user_config = runpy.run_path(str(path)).get('config')
     if not isinstance(user_config, dict):

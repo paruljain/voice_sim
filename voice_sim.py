@@ -1,5 +1,7 @@
 """Push-to-talk voice controls for Microsoft Flight Simulator."""
 import os
+import argparse
+import sys
 from time import sleep
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
@@ -126,8 +128,68 @@ def main():
             sm.exit()
 
 
-if __name__ == '__main__':
+def self_test():
+    """Verify packaged native libraries/resources without hardware or API calls."""
+    import ctypes
+    import importlib
+    import wave
+    import keyboard
+    import pygame
+    import pyaudio
+    import requests
+    from settings import RESOURCE_DIR
+
+    simconnect = importlib.import_module('SimConnect.SimConnect')
+    ctypes.WinDLL(simconnect._library_path)
+    with wave.open(str(RESOURCE_DIR / 'notification.wav'), 'rb') as wav:
+        if not wav.getnframes():
+            raise ValueError('Notification sound is empty.')
+    if not (RESOURCE_DIR / 'config_sample.py').is_file():
+        raise ValueError('Sample configuration is missing.')
+    if not os.path.isfile(requests.certs.where()):
+        raise ValueError('HTTPS certificate bundle is missing.')
+    keyboard.key_to_scan_codes('alt')
+    print('Self-test passed: SimConnect DLL, audio/input libraries, resources, and HTTPS certificates.')
+
+
+def cli(argv=None):
+    parser = argparse.ArgumentParser(description='Push-to-talk voice controls for Microsoft Flight Simulator.')
+    actions = parser.add_mutually_exclusive_group()
+    actions.add_argument('--setup', action='store_true', help='Create config.py and commands.txt beside VoiceSim.')
+    actions.add_argument('--list-audio-devices', action='store_true', help='Show microphone and playback device IDs.')
+    actions.add_argument('--list-joysticks', action='store_true', help='Show joystick IDs.')
+    actions.add_argument('--list-joystick-buttons', type=int, metavar='ID', help='Show pressed buttons for a joystick.')
+    actions.add_argument('--self-test', action='store_true', help='Check bundled libraries and resources without connecting.')
+    args = parser.parse_args(argv)
     try:
-        main()
-    except (ValueError, OSError, RuntimeError) as exc:
-        raise SystemExit(f'VoiceSim: {exc}') from exc
+        if args.setup:
+            load_config()
+            from settings import APP_DIR
+            print(f'Edit {APP_DIR / "config.py"} to set your OpenRouter key and preferences.')
+        elif args.self_test:
+            self_test()
+        elif args.list_audio_devices:
+            from device_tools import list_audio_devices
+            list_audio_devices()
+        elif args.list_joysticks:
+            from device_tools import list_joysticks
+            list_joysticks()
+        elif args.list_joystick_buttons is not None:
+            from device_tools import list_joystick_buttons
+            list_joystick_buttons(args.list_joystick_buttons)
+        else:
+            main()
+    except (ValueError, OSError, RuntimeError, SyntaxError) as exc:
+        print(f'VoiceSim: {exc}', file=sys.stderr)
+        # Keep startup errors visible when the executable is double-clicked.
+        if getattr(sys, 'frozen', False) and len(sys.argv) == 1 and sys.stdin.isatty():
+            try:
+                input('Press Enter to close...')
+            except (EOFError, KeyboardInterrupt):
+                pass
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(cli())

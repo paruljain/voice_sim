@@ -13,7 +13,7 @@ import requests
 from commands import command_specs, parse_command
 from open_router import get_command, normalize_transcript
 from record_audio import AudioRecorder
-from settings import DEFAULTS, load_config, validate_api_config
+from settings import DEFAULTS, application_directory, load_config, validate_api_config
 from voice_sim import execute_command
 import voice_sim
 from SimConnect import AircraftEvents
@@ -188,16 +188,56 @@ class RecordingTests(unittest.TestCase):
 
 
 class SettingsTests(unittest.TestCase):
+    def test_frozen_settings_use_executable_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / 'VoiceSim.exe'
+            with patch('settings.sys.frozen', True, create=True), patch('settings.sys.executable', str(executable)):
+                self.assertEqual(application_directory(), executable.parent)
+
+    def test_external_command_table_used_for_generation_and_validation(self):
+        import prompt
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'commands.txt').write_text('toggle beacon: BEACON_LIGHTS_TOGGLE\n', encoding='utf-8')
+            with patch('settings.APP_DIR', root):
+                self.assertEqual(prompt.get_prompt(), 'toggle beacon: BEACON_LIGHTS_TOGGLE\n')
+                self.assertEqual(parse_command('BEACON_LIGHTS_TOGGLE'), ('BEACON_LIGHTS_TOGGLE', None))
+                with self.assertRaises(ValueError):
+                    parse_command('FLAPS_UP')
+
     def test_copy_sample_without_overwriting_and_load_from_app_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             sample = root / 'config_sample.py'
             sample.write_text("config = {'trigger_key': 'f8'}\n", encoding='utf-8')
-            with patch('settings.APP_DIR', root), contextlib.redirect_stdout(io.StringIO()):
+            with patch('settings.APP_DIR', root), patch('settings.RESOURCE_DIR', root), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(load_config()['trigger_key'], 'f8')
                 self.assertTrue(sample.exists())
+                self.assertTrue((root / 'commands.txt').is_file())
+                (root / 'commands.txt').write_text('custom commands\n', encoding='utf-8')
                 (root / 'config.py').write_text("config = {'trigger_key': 'f9'}\n", encoding='utf-8')
                 self.assertEqual(load_config()['trigger_key'], 'f9')
+                self.assertEqual((root / 'commands.txt').read_text(encoding='utf-8'), 'custom commands\n')
+
+
+class CliTests(unittest.TestCase):
+    def test_helpers_do_not_load_config_or_connect(self):
+        for option, function, parameter in [
+            (['--list-audio-devices'], 'list_audio_devices', None),
+            (['--list-joysticks'], 'list_joysticks', None),
+            (['--list-joystick-buttons', '0'], 'list_joystick_buttons', 0),
+        ]:
+            with self.subTest(option=option), patch('device_tools.' + function) as helper, patch('voice_sim.main') as main, patch('voice_sim.load_config') as config:
+                self.assertEqual(voice_sim.cli(option), 0)
+                helper.assert_called_once_with(*(() if parameter is None else (parameter,)))
+                main.assert_not_called()
+                config.assert_not_called()
+
+    def test_startup_error_returns_failure(self):
+        with patch('voice_sim.main', side_effect=ValueError('Missing API key')), contextlib.redirect_stderr(io.StringIO()) as output:
+            self.assertEqual(voice_sim.cli([]), 1)
+            self.assertIn('Missing API key', output.getvalue())
 
 
 class TriggerTests(unittest.TestCase):

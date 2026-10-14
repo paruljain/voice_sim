@@ -30,3 +30,11 @@ set nav radio 1 to 110.25: NAV1_RADIO_SET,110.25
 set nav2 radio to 109.70: NAV2_RADIO_SET,109.70
 set nav radio 2 to 109.70: NAV2_RADIO_SET,109.70
 '''
+
+
+def get_prompt():
+    """Use a user's editable command table, or the bundled default."""
+    from settings import APP_DIR
+
+    path = APP_DIR / 'commands.txt'
+    return path.read_text(encoding='utf-8') if path.exists() else prompt
