@@ -7,7 +7,7 @@ a = Analysis(
     [str(root / 'voice_sim.py')],
     pathex=[str(root)],
     binaries=collect_dynamic_libs('SimConnect'),
-    datas=[(str(root / 'notification.wav'), '.'), (str(root / 'VoiceSim.sample.ini'), '.')],
+    datas=[(str(root / name), '.') for name in ('notification.wav', 'VoiceSim.sample.ini', 'aircraft_commands.json', 'THIRD_PARTY_NOTICES.md', 'SimConnect-LICENSE.txt')],
     hiddenimports=[],
     hookspath=[],
     runtime_hooks=[],

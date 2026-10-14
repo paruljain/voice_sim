@@ -43,7 +43,7 @@ def main():
     archive = root / 'dist' / 'VoiceSim-windows-x64.zip'
     with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as bundle:
         bundle.write(executable, executable.name)
-        for name in ('README.md', 'LICENSE', 'logo.jpg'):
+        for name in ('README.md', 'LICENSE', 'logo.jpg', 'THIRD_PARTY_NOTICES.md', 'SimConnect-LICENSE.txt'):
             bundle.write(root / name, name)
     checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
     (root / 'dist' / 'SHA256SUMS.txt').write_text(f'{checksum}  {archive.name}\n', encoding='utf-8')

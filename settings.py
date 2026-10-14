@@ -1,4 +1,4 @@
-"""Read settings and voice commands from a single, non-executable INI file."""
+"""Read user preferences from a non-executable INI file."""
 import configparser
 import math
 import os
@@ -31,7 +31,7 @@ SECTIONS = {
     'openrouter': {'api_key', 'speech_to_text_model', 'generation_model', 'speech_language', 'request_timeout_seconds'},
     'trigger': {'key', 'joystick_id', 'joystick_button'},
     'audio': {'record_device_id', 'playback_device_id'},
-    'commands': None,
+    'commands': None,  # Tolerate an existing section; execution uses the built-in catalog.
 }
 
 
@@ -61,10 +61,6 @@ def _read_ini(path):
                 if option not in allowed:
                     raise ValueError(f'{path.name}: unknown setting [{section}] {option}.')
     return parser
-
-
-def default_commands():
-    return dict(_read_ini(RESOURCE_DIR / 'VoiceSim.sample.ini')['commands'])
 
 
 def _device_id(parser, section, option):
@@ -111,9 +107,6 @@ def load_config():
         raise ValueError(f'{CONFIG_NAME}: set both joystick_id and joystick_button, or leave both blank.')
     config['audio_record_device_id'] = _device_id(parser, 'audio', 'record_device_id')
     config['audio_playback_device_id'] = _device_id(parser, 'audio', 'playback_device_id')
-    config['commands'] = dict(parser['commands']) if parser.has_section('commands') else default_commands()
-    from commands import command_specs
-    command_specs(config['commands'])
     return config
 
 

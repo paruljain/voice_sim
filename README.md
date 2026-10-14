@@ -2,7 +2,7 @@
 
 # VoiceSim
 
-Operate Microsoft Flight Simulator aircraft controls with push-to-talk voice commands, especially when flying in VR. VoiceSim records your microphone, transcribes speech through **OpenRouter**, uses a separately configurable text model to generate a SimConnect event, and sends that event to the simulator.
+Operate Microsoft Flight Simulator aircraft controls with push-to-talk voice commands, especially when flying in VR. VoiceSim records your microphone, transcribes speech through **OpenRouter**, and asks a separately configurable text model to select a command from its built-in aircraft catalog using structured JSON. The app validates the result and sends the SimConnect event to the simulator. No command configuration is needed.
 
 Examples:
 
@@ -14,6 +14,9 @@ Examples:
 - "Autopilot heading hold on"
 - "Set heading to forty five degrees"
 - "Set autopilot vertical speed to minus five hundred feet per minute"
+- "Raise the landing gear"
+- "Set squawk to seven seven zero zero"
+- "Set altimeter pressure to one thousand thirteen point two five hectopascals"
 
 ## Requirements
 
@@ -28,7 +31,7 @@ The Windows release runs without installing Python, pip, or any modules.
 1. Download `VoiceSim.exe` or `VoiceSim-windows-x64.zip` from the project's [releases](https://github.com/paruljain/voice_sim/releases).
 2. Put the executable in a writable folder such as `Documents\VoiceSim`. If using the ZIP, extract it first.
 3. Double-click `VoiceSim.exe`. It creates `VoiceSim.ini` beside itself. The first launch shows a message asking you to configure your key.
-4. Open `VoiceSim.ini` in a text editor, set `api_key` in `[openrouter]`, and save it. This one file also contains models, triggers, audio devices, and voice commands.
+4. Open `VoiceSim.ini` in a text editor, set `api_key` in `[openrouter]`, and save it. This file contains your models, triggers, and audio devices. Aircraft commands are built into the app.
 5. Launch `VoiceSim.exe` again and start MSFS.
 
 Keep your `VoiceSim.ini` when replacing the executable with a new release. Setup never overwrites it. The console stays open on startup errors when launched by double-clicking.
@@ -49,9 +52,9 @@ The environment variable takes precedence over the config key. Settings are save
 
 ### Configuration format
 
-`VoiceSim.ini` is plain text using `key = value` entries grouped into `[openrouter]`, `[trigger]`, `[audio]`, and `[commands]`. Open it in Notepad or any text editor. Values need no quotes, commas between lines, or programming syntax. Lines beginning with `#` or `;` are comments. Leave optional device IDs or language blank to use defaults. Restart VoiceSim after editing.
+`VoiceSim.ini` is plain text using `key = value` entries grouped into `[openrouter]`, `[trigger]`, and `[audio]`. Open it in Notepad or any text editor. Values need no quotes, commas between lines, or programming syntax. Lines beginning with `#` or `;` are comments. Leave optional device IDs or language blank to use defaults. Restart VoiceSim after editing.
 
-The generated file includes comments and the complete command table. For example:
+The generated file includes comments explaining each preference. For example:
 
 ```ini
 [openrouter]
@@ -68,12 +71,9 @@ joystick_button =
 record_device_id =
 playback_device_id =
 
-[commands]
-flaps up = FLAPS_UP
-set heading to 25 degrees = HEADING_BUG_SET,25
 ```
 
-The command section above is shortened for illustration. Keep all the entries you want to use. Settings are read as data. Misspelled settings, duplicate entries, invalid device IDs, and malformed command entries produce a descriptive startup error.
+Settings are read as data. Misspelled settings, duplicate entries, and invalid device IDs produce a descriptive startup error. The command catalog is supplied automatically.
 
 ## Choose your models
 
@@ -92,11 +92,11 @@ speech_language =
 request_timeout_seconds = 30
 ```
 
-Edit these entries in the `[openrouter]` section. Use full `provider/model` IDs. Speech-to-text uses OpenRouter's dedicated [`/audio/transcriptions` endpoint](https://openrouter.ai/docs/guides/overview/multimodal/stt); choose a **transcription** model. A general model that accepts audio in chat is not necessarily compatible. Browse the current [transcription model catalog](https://openrouter.ai/models?output_modalities=transcription), or query `https://openrouter.ai/api/v1/models?output_modalities=transcription`. Generation uses `/chat/completions` and needs a text chat model.
+Edit these entries in the `[openrouter]` section. Use full `provider/model` IDs. Speech-to-text uses OpenRouter's dedicated [`/audio/transcriptions` endpoint](https://openrouter.ai/docs/guides/overview/multimodal/stt); choose a **transcription** model. A general model that accepts audio in chat is not necessarily compatible. Browse the current [transcription model catalog](https://openrouter.ai/models?output_modalities=transcription), or query `https://openrouter.ai/api/v1/models?output_modalities=transcription`. Generation uses `/chat/completions` and requires a model/provider supporting [structured outputs with JSON Schema](https://openrouter.ai/docs/guides/features/structured-outputs). Both generation examples above support this. VoiceSim requests routing only to providers supporting the required parameters.
 
-`speech_language` is an optional language code such as `en`; leave it blank to detect the language. Transcription preserves the spoken language rather than forcing an English translation. Generation is instructed with an English command table; try your chosen models with your language before relying on them. `request_timeout_seconds` sets the read timeout for each API call, with a separate 10-second connection timeout. For generation, prefer models that answer briefly without lengthy reasoning; truncated or malformed outputs are ignored.
+`speech_language` is an optional language code such as `en`; leave it blank to detect the language. Transcription preserves the spoken language rather than forcing an English translation. Generation receives an English aircraft catalog; try your chosen models with your language before relying on them. `request_timeout_seconds` sets the read timeout for each API call, with a separate 10-second connection timeout. For generation, prefer models that answer briefly without lengthy reasoning; truncated or malformed outputs are ignored.
 
-Availability, provider behavior, latency, and prices can change. Check each linked model page for current pricing. Each spoken command makes one transcription request and, if a transcript is returned, one generation request. The command table counts toward generation input usage.
+Availability, provider behavior, latency, and prices can change. Check each linked model page for current pricing. Each spoken command makes one transcription request and, if a transcript is returned, one generation request. The full supported catalog and a few examples count toward generation input usage. The app does not make an extra model call to select a category.
 
 ## Use
 
@@ -106,7 +106,7 @@ Availability, provider behavior, latency, and prices can change. Check each link
 
 Start MSFS before or after VoiceSim; it waits for a SimConnect connection. In the cockpit, hold **Alt**, wait for the double beep, speak one command, and release Alt. The console shows the transcript, generated event, and whether it was sent. Latency depends on your models and network. Press **Ctrl+C** to quit.
 
-Generated commands must match an event in `[commands]` with the expected parameter count. Unsupported speech returns no command. Invalid, multiple, or truncated commands are ignored. A sent event does not guarantee the aircraft supports it; some aircraft use custom controls.
+The model must select an allowed catalog ID and a numeric argument or null. The app maps the ID to an event and checks argument presence, type, range, and encoding before execution. Unsupported or unclear speech returns no command. Invalid, multiple, or truncated responses are ignored. A sent event does not guarantee the aircraft supports it; some aircraft use custom controls.
 
 ### Trigger and audio configuration
 
@@ -119,19 +119,27 @@ A close microphone or headset reduces engine noise. Check Windows microphone per
 ### Troubleshooting
 
 - **Authentication/credits:** HTTP 401 means check the OpenRouter key; HTTP 402 means check credits/access.
-- **Model errors:** check the full ID and that the STT model supports the transcription endpoint. Try one of the examples above. Check [OpenRouter status](https://status.openrouter.ai/) for outages.
+- **Model errors:** check the full ID, that the STT model supports transcription, and that the generation model/provider supports JSON Schema structured outputs. Try one of the examples above. Check [OpenRouter status](https://status.openrouter.ai/) for outages.
 - **Timeout/rate limit:** try again after the current request ends or increase the timeout. VoiceSim does not automatically replay commands.
 - **Recording errors:** verify microphone access and the device ID. Recording errors are reported without waiting forever for a failed recording thread.
 - **No cockpit change:** check the transcript and generated event in the console. Verify the aircraft supports that SimConnect event. Speak a single instruction at a time.
-- **Radio tuning:** the supplied legacy `COM_RADIO_SET` / `NAV*_RADIO_SET` events accept MHz with at most two decimals, such as `119.25` or `109.70`. Three-decimal 8.33 kHz COM channels require different SimConnect events and are not supported by the supplied table.
-- **Package check:** run `.\VoiceSim.exe --self-test` to verify bundled libraries, the notification sound, and HTTPS certificates. This does not contact OpenRouter or connect to MSFS.
+- **Radio tuning:** the shipped COM/NAV events accept MHz with at most two decimals, such as `119.25` or `109.70`. Three-decimal 8.33 kHz COM channels require events absent from this pinned package. VoiceSim handles BCD encoding locally. ADF complete-frequency setters take kHz with one decimal place; squawk codes use digits 0 through 7.
+- **Package check:** run `.\VoiceSim.exe --self-test` to verify bundled libraries, the notification sound, HTTPS certificates, and aircraft catalog. This does not contact OpenRouter or connect to MSFS.
 - **Settings not saved:** keep the executable in a writable folder; avoid running it directly inside a ZIP or placing it under Program Files.
 
-## Add voice commands
+## Built-in aircraft commands
 
-Edit the `[commands]` section in `VoiceSim.ini`. Add a line in the form `spoken example = EVENT_NAME` or `spoken example = EVENT_NAME,123`. Parameterized examples tell the model to substitute the number you request. The app derives its allowed events and parameter requirements from this table; adding a new event does not require a second allowlist edit. `VoiceSim.sample.ini` contains the default settings and command table embedded in the executable.
+The bundled catalog contains **730 aircraft events**, of which **718 are enabled for execution**. It is generated from the exact pinned [Python-SimConnect EventList](https://github.com/odwdinc/Python-SimConnect/blob/master/SimConnect/EventList.py), supplemented with parameter metadata from the [Microsoft Flight Simulator SDK](https://docs.flightsimulator.com/html/Programming_Tools/Event_IDs/Event_IDs.htm). Invalid placeholder names are omitted. Camera, slew, failure, mission, ATC, multiplayer, and other non-aircraft categories are excluded.
 
-Find supported events in [Python-SimConnect's EventList](https://github.com/odwdinc/Python-SimConnect/blob/master/SimConnect/EventList.py). Test additions in the simulator with your chosen models. The selected model's context limit applies. Generation asks for one plain event, uses temperature 0, and allows 128 output tokens.
+Engine controls, flight controls, autopilot, fuel systems, avionics, instruments, lights, miscellaneous aircraft systems, and helicopter controls are included. The twelve unavailable entries are retained with reasons: missing SDK contracts or events the SDK marks unsupported. They are not offered to the model or allowed to execute.
+
+```powershell
+.\VoiceSim.exe --list-commands
+```
+
+The model receives the complete supported catalog with descriptions, argument types/units/ranges, and a few examples. Strict JSON Schema restricts the selection to a compact numeric catalog ID; VoiceSim resolves the event name locally and validates the argument. Radio/ADF frequency encoding, squawk BCD, altimeter pressure scaling, and Mach scaling happen in the app. Events with a secondary SDK selector use only the legacy/default selector supported by the wrapper; explicit additional indexes are not supported. Speak one instruction at a time.
+
+The built-in catalog is embedded in the executable and requires no configuration or runtime download. Aircraft-specific custom events and multi-argument transports beyond the wrapper's single DWORD are not covered. The model's context limit applies; generation uses temperature 0 and allows 128 output tokens.
 
 ## Development
 
@@ -159,6 +167,16 @@ python -m unittest discover -s tests -v
 
 The tests mock API requests and audio devices; live OpenRouter and simulator integration require your credentials and hardware.
 
+### Maintain the aircraft catalog
+
+Developers can regenerate `aircraft_commands.json` with:
+
+```powershell
+python generate_catalog.py
+```
+
+The generator reads aircraft events from the installed SimConnect package, fetches the SDK event tables, and records their URLs and hashes. It combines documented argument metadata with explicit conversion rules. Review catalog changes, especially argument contracts, and run the regression tests before releasing. The tests check that the catalog matches the pinned package, that all enabled events resolve, and that JSON selection, argument validation, and conversions agree. Changing the SimConnect version requires regenerating and reviewing the catalog. Existing user preferences remain separate from the built-in catalog.
+
 ### Build a Windows release
 
 Build on 64-bit Windows using 64-bit Python:
@@ -168,6 +186,6 @@ Build on 64-bit Windows using 64-bit Python:
 .\.venv\Scripts\python.exe build_release.py
 ```
 
-The build runs regression tests, packages `dist\VoiceSim.exe`, and checks an isolated copy using `--help`, `--self-test`, and `--setup`. It verifies settings persist outside the temporary extraction folder and are preserved on repeated setup. It also creates `dist\VoiceSim-windows-x64.zip` and `dist\SHA256SUMS.txt`. The bundle includes SimConnect.dll, PyAudio, pygame, keyboard, requests, Python, the default config, and the notification sound. User keys/settings are never included.
+The build runs regression tests, packages `dist\VoiceSim.exe`, and checks an isolated copy using `--help`, `--self-test`, and `--setup`. It verifies settings persist outside the temporary extraction folder and are preserved on repeated setup. It also creates `dist\VoiceSim-windows-x64.zip` and `dist\SHA256SUMS.txt`. The bundle includes SimConnect.dll, PyAudio, pygame, keyboard, requests, Python, the default preferences, aircraft catalog, and notification sound. User keys/settings are never included.
 
 The **Build Windows release** GitHub Actions workflow performs the same build and uploads downloadable artifacts. Run it manually from the Actions tab, or push a `v*` tag. It does not automatically publish a GitHub Release; attach the ZIP and checksum file to a release when ready. Live speech and cockpit behavior still require testing with a microphone, API key, and MSFS.

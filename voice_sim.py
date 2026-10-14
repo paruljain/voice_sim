@@ -8,27 +8,24 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
 from SimConnect import AircraftEvents, SimConnect
 
-from commands import parse_command
+from commands import available_commands, encode_command, list_commands
 from open_router import get_command
 from play_audio import AudioNotifier
 from record_audio import AudioRecorder
 from settings import load_config, validate_api_config
 
 
-def execute_command(events, command, command_table=None):
-    parsed = parse_command(command, command_table)
-    if parsed is None:
-        return
-    name, parameter = parsed
-    event = events.find(name)
+def execute_command(events, command):
+    parameter = encode_command(command)
+    event = events.find(command.event)
     if event is None:
-        print(f'SimConnect has no such command: {name}')
+        print(f'SimConnect has no such command: {command.event}')
         return
     if parameter is None:
         event()
     else:
         event(parameter)
-    print(f'Sent to simulator: {command}')
+    print(f'Sent to simulator: {command.event}; argument: {command.argument}')
 
 
 def main():
@@ -95,7 +92,7 @@ def main():
                         return
                     command = get_command(audio, config)
                 if command is not None:
-                    execute_command(events, command, config.get('commands'))
+                    execute_command(events, command)
             except (OSError, RuntimeError, ValueError) as exc:
                 print(f'Command failed: {exc}')
 
@@ -148,14 +145,17 @@ def self_test():
         raise ValueError('Sample configuration is missing.')
     if not os.path.isfile(requests.certs.where()):
         raise ValueError('HTTPS certificate bundle is missing.')
+    if not available_commands():
+        raise ValueError('Aircraft catalog is missing or empty.')
     keyboard.key_to_scan_codes('alt')
-    print('Self-test passed: SimConnect DLL, audio/input libraries, resources, and HTTPS certificates.')
+    print(f'Self-test passed: native libraries, resources, HTTPS certificates, and {len(available_commands())} aircraft commands.')
 
 
 def cli(argv=None):
     parser = argparse.ArgumentParser(description='Push-to-talk voice controls for Microsoft Flight Simulator.')
     actions = parser.add_mutually_exclusive_group()
-    actions.add_argument('--setup', action='store_true', help='Create VoiceSim.ini with settings and voice commands.')
+    actions.add_argument('--setup', action='store_true', help='Create VoiceSim.ini with your preferences.')
+    actions.add_argument('--list-commands', action='store_true', help='Show the built-in aircraft command catalog.')
     actions.add_argument('--list-audio-devices', action='store_true', help='Show microphone and playback device IDs.')
     actions.add_argument('--list-joysticks', action='store_true', help='Show joystick IDs.')
     actions.add_argument('--list-joystick-buttons', type=int, metavar='ID', help='Show pressed buttons for a joystick.')
@@ -165,7 +165,9 @@ def cli(argv=None):
         if args.setup:
             load_config()
             from settings import APP_DIR
-            print(f'Edit {APP_DIR / "VoiceSim.ini"} to set your OpenRouter key, preferences, and voice commands.')
+            print(f'Edit {APP_DIR / "VoiceSim.ini"} to set your OpenRouter key and preferences. Aircraft commands are built in.')
+        elif args.list_commands:
+            list_commands()
         elif args.self_test:
             self_test()
         elif args.list_audio_devices:
